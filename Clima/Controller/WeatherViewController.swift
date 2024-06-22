@@ -47,9 +47,15 @@ final class WeatherViewController: UIViewController {
         element.setImage(UIImage(systemName: Constants.geoSF), for: .normal)
         element.tintColor = .label
         
+        element.addTarget(self, action: #selector(geoButtonPressed), for: .touchUpInside)
         element.translatesAutoresizingMaskIntoConstraints = false
         return element
     }()
+    
+    @objc private func geoButtonPressed(_ sender: UIButton) {
+        locationManager.requestLocation()
+        
+    }
     
     private lazy var searchTextField: UITextField = {
         let element = UITextField()
@@ -158,8 +164,8 @@ final class WeatherViewController: UIViewController {
         tempTypeLabel.text = Constants.celsius
         cityLabel.text = "London"
         
-        locationManager.delegate = self
         locationManager.requestWhenInUseAuthorization()
+        locationManager.delegate = self
         locationManager.requestLocation()
         
         
@@ -240,6 +246,7 @@ extension WeatherViewController: WeatherManagerDelegate {
             tempLabel.text = weather.temperatureString
             conditionImageView.image = UIImage(systemName: weather.conditionName)
             cityLabel.text = weather.cityName
+            
         }
     }
     
@@ -253,6 +260,12 @@ extension WeatherViewController: WeatherManagerDelegate {
 extension WeatherViewController: CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            locationManager.stopUpdatingLocation()
+            let lat = location.coordinate.latitude
+            let lon = location.coordinate.longitude
+            weatherManager.fetchWeather(latitude: lat, longitude: lon)
+        }
         print("got location Data")
     }
     
