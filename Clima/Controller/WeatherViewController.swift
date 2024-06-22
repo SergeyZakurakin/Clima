@@ -1,5 +1,5 @@
 //
-//  MainViewController.swift
+//  WeatherViewController.swift
 //  Clima
 //
 //  Created by Sergey Zakurakin on 19/06/2024.
@@ -7,10 +7,15 @@
 
 import UIKit
 import SnapKit
+import CoreLocation
 
-class MainViewController: UIViewController {
-
+final class WeatherViewController: UIViewController {
     
+    
+    var weatherManager = WeatherManager()
+    let locationManager = CLLocationManager()
+    
+    // MARK: - UI
     private lazy var backgroundImageView: UIImageView = {
         let element = UIImageView()
         element.image = UIImage(named: Constants.background)
@@ -55,6 +60,8 @@ class MainViewController: UIViewController {
         element.textColor = .label
         element.tintColor = .label
         element.backgroundColor = .systemFill
+        element.returnKeyType = .go
+        element.autocapitalizationType = .words
         
         element.translatesAutoresizingMaskIntoConstraints = false
         return element
@@ -64,6 +71,7 @@ class MainViewController: UIViewController {
         let element = UIButton(type: .system)
         element.setImage(UIImage(systemName: Constants.searchSF), for: .normal)
         element.tintColor = .label
+        element.addTarget(self, action: #selector(searchPressed), for: .touchUpInside)
         
         element.translatesAutoresizingMaskIntoConstraints = false
         return element
@@ -72,7 +80,7 @@ class MainViewController: UIViewController {
     private lazy var conditionImageView: UIImageView = {
         let element = UIImageView()
         element.image = UIImage(systemName: Constants.conditionSF)
-        element.tintColor = UIColor(named: Constants.weatherColor) // изправить
+        element.tintColor = .label
         
         element.translatesAutoresizingMaskIntoConstraints = false
         return element
@@ -114,16 +122,21 @@ class MainViewController: UIViewController {
     
     let emptyView = UIView()
     
-    
+    // MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
         setupView()
         setupConstraints()
         
-  
+        searchTextField.delegate = self
+        weatherManager.delegate = self
+        
+        
     }
-    
+
     private func setupView() {
+        
+        
         view.addSubview(backgroundImageView)
         view.addSubview(mainStackView)
         
@@ -144,10 +157,16 @@ class MainViewController: UIViewController {
         tempLabel.text = "21"
         tempTypeLabel.text = Constants.celsius
         cityLabel.text = "London"
+        
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestLocation()
+        
+        
     }
 }
-
-extension MainViewController {
+//MARK: - Setup constraint
+extension WeatherViewController {
     
     private func setupConstraints() {
         
@@ -173,16 +192,71 @@ extension MainViewController {
         conditionImageView.snp.makeConstraints { make in
             make.width.height.equalTo(120)
         }
-        
-        
 //        NSLayoutConstraint.activate([
 //            backgroundImageView.topAnchor.constraint(equalTo: view.topAnchor),
 //            backgroundImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 //            backgroundImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
 //            backgroundImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 //        ])
-        
+    }
+}
+// MARK: - UITextFieldDelegate
+extension WeatherViewController: UITextFieldDelegate {
+    
+    @objc private func searchPressed(_ sender: UIButton) {
+        searchTextField.endEditing(true)
+        print(searchTextField.text!)
+    }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        searchTextField.endEditing(true)
+        print(searchTextField.text ?? "")
+        return true
+    }
+    
+    func textFieldShouldEndEditing(_ textField: UITextField) -> Bool {
+        if searchTextField.text != "" {
+            return true
+        } else {
+            searchTextField.placeholder = "Type something here"
+            return false
+        }
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if let city = searchTextField.text {
+            weatherManager.fetchWeather(cityName: city)
+            
+        }
+        searchTextField.text = ""
     }
 }
 
+//MARK: - WeatherManagerDelegate
+extension WeatherViewController: WeatherManagerDelegate {
+    
+    func didUpdateWeather(_ weatherManager: WeatherManager, weather: WeatherModel) {
+        DispatchQueue.main.async { [self] in
+            tempLabel.text = weather.temperatureString
+            conditionImageView.image = UIImage(systemName: weather.conditionName)
+            cityLabel.text = weather.cityName
+        }
+    }
+    
+    func didFailWithError(error: Error) {
+        print(error)
+    }
+}
 
+//MARK: - CLLocationManagerDelegate
+
+extension WeatherViewController: CLLocationManagerDelegate {
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        print("got location Data")
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print(error)
+    }
+}
